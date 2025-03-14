@@ -4,38 +4,55 @@
  */
 package binarios;
 
-import javax.swing.*;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.GridLayout;
+import java.awt.List;
+import java.io.IOException;
 import java.util.ArrayList;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JSplitPane;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+
 
 public class SteamGui extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainPanel;
     private JPanel loginPanel, adminPanel, normalUserPanel;
     private JButton btnLogin, btnRegister, btnLogoutAdmin, btnLogoutUser;
-    private JButton btnRegisterPlayer, btnModifyPlayer, btnDeletePlayer;
+    //private JButton btnRegisterPlayer, btnModifyPlayer, btnDeletePlayer;
     private JButton btnAddGame, btnModifyGame, btnDeleteGame;
     private JButton btnViewCatalog, btnDownloadGame, btnViewProfile;
-    private JButton btnViewReports, btnConfigure;
-    private Image imagenUsuario;
+    private JButton btnViewReports;
+    private String currentUsername; 
 
-    private ArrayList<User> users;
-
+    private ArrayList<User> users;  
+    steam s = new steam();
+    
     public SteamGui() {
-        setTitle("Sistema de Administración de Juego");
+        
+        setTitle("Steam");
         setSize(600, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        imagenUsuario = new ImageIcon("C:/Users/50494/OneDrive/Documents/NetBeansProjects/Binarios/imagenes/imagenusuario.png").getImage();
-
+       
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
         users = new ArrayList<>();
-        users.add(new User("admin", "admin", "admin"));
+        users.add(new User("admin", "admin", "admin")); // Usuario administrador por defecto
 
+        
         loginPanel = createLoginPanel();
+
         adminPanel = createAdminPanel();
+
         normalUserPanel = createNormalUserPanel();
 
         mainPanel.add(loginPanel, "login");
@@ -43,18 +60,20 @@ public class SteamGui extends JFrame {
         mainPanel.add(normalUserPanel, "user");
 
         add(mainPanel);
+
+        
         cardLayout.show(mainPanel, "login");
     }
 
     private JPanel createLoginPanel() {
         JPanel panel = new JPanel(new GridLayout(4, 2));
 
-        JLabel lblUsername = new JLabel("Usuario:");
+        JLabel lblUsername = new JLabel("Username:");
         JTextField txtUsername = new JTextField();
-        JLabel lblPassword = new JLabel("Contraseña:");
+        JLabel lblPassword = new JLabel("Password:");
         JPasswordField txtPassword = new JPasswordField();
-        btnLogin = new JButton("Ingresar");
-        btnRegister = new JButton("Registrarse");
+        btnLogin = new JButton("Login");
+        btnRegister = new JButton("Registrar");
 
         btnLogin.addActionListener(e -> handleLogin(txtUsername.getText(), new String(txtPassword.getPassword())));
         btnRegister.addActionListener(e -> handleRegister(txtUsername.getText(), new String(txtPassword.getPassword())));
@@ -72,108 +91,198 @@ public class SteamGui extends JFrame {
     }
 
     private JPanel createAdminPanel() {
-        JPanel panel = new JPanel(new GridLayout(8, 1));
+    
+    JPanel panel = new JPanel(new BorderLayout());
 
-        btnRegisterPlayer = new JButton("Registrar Jugador");
-        btnModifyPlayer = new JButton("Modificar Jugador");
-        btnDeletePlayer = new JButton("Eliminar Jugador");
-        btnAddGame = new JButton("Añadir Juego");
-        btnModifyGame = new JButton("Modificar Juego");
-        btnDeleteGame = new JButton("Eliminar Juego");
-        btnViewReports = new JButton("Mostrar Reportes");
-        btnLogoutAdmin = new JButton("Logout");
+   
+    JPanel leftPanel = new JPanel(new GridLayout(4, 1));
+    
+    btnAddGame = new JButton("Agregar Juego");
+    btnModifyGame = new JButton("Modificar juego");
+    btnDeleteGame = new JButton("Borrar juego");
+    btnViewReports = new JButton("Ver reportes ");
+    
 
-        panel.add(btnRegisterPlayer);
-        panel.add(btnModifyPlayer);
-        panel.add(btnDeletePlayer);
-        panel.add(btnAddGame);
-        panel.add(btnModifyGame);
-        panel.add(btnDeleteGame);
-        panel.add(btnViewReports);
-        panel.add(btnLogoutAdmin);
+    
+    leftPanel.add(btnAddGame);
+    leftPanel.add(btnModifyGame);
+    leftPanel.add(btnDeleteGame);
+    leftPanel.add(btnViewReports);
 
-        btnLogoutAdmin.addActionListener(e -> cardLayout.show(mainPanel, "login"));
+   
+    JPanel rightPanel = new JPanel();
+    JButton btnConfigureAdmin = new JButton("Configuraciones");
+    rightPanel.add(btnConfigureAdmin);
 
-        return panel;
+    
+    JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
+    splitPane.setDividerLocation(300); 
+
+    
+    panel.add(splitPane, BorderLayout.CENTER);
+
+    
+    btnLogoutAdmin = new JButton("Logout");
+    panel.add(btnLogoutAdmin, BorderLayout.SOUTH);
+
+    
+    btnLogoutAdmin.addActionListener(e -> cardLayout.show(mainPanel, "login"));
+    btnAddGame.addActionListener(e -> agregarJuego());
+
+    return panel;
+}
+
+    private void agregarJuego() {
+    try {
+       
+        String nombre = JOptionPane.showInputDialog(this, "Ingrese el nombre del juego:", "Agregar Juego", JOptionPane.QUESTION_MESSAGE);
+        if (nombre == null || nombre.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "El nombre no puede estar vacío.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+       
+        String soInput = JOptionPane.showInputDialog(this, "Ingrese el sistema operativo (W para Windows, M para Mac, L para Linux):", "Agregar Juego", JOptionPane.QUESTION_MESSAGE);
+        if (soInput == null || soInput.length() != 1 || !"WML".contains(soInput.toUpperCase())) {
+            JOptionPane.showMessageDialog(this, "Debe ingresar un carácter válido: W, M o L.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        char so = soInput.toUpperCase().charAt(0);
+
+       
+        String edadMinInput = JOptionPane.showInputDialog(this, "Ingrese la edad mínima requerida:", "Agregar Juego", JOptionPane.QUESTION_MESSAGE);
+        if (edadMinInput == null || !edadMinInput.matches("\\d+")) {
+            JOptionPane.showMessageDialog(this, "Debe ingresar una edad mínima válida (número entero).", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        int edadMin = Integer.parseInt(edadMinInput);
+
+       
+        String precioInput = JOptionPane.showInputDialog(this, "Ingrese el precio del juego:", "Agregar Juego", JOptionPane.QUESTION_MESSAGE);
+        if (precioInput == null || !precioInput.matches("\\d+(\\.\\d{1,2})?")) {
+            JOptionPane.showMessageDialog(this, "Debe ingresar un precio válido (número decimal).", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        double precio = Double.parseDouble(precioInput);
+
+       
+        s.addGame(nombre, so, edadMin, precio);
+
+        
+        JOptionPane.showMessageDialog(this, "El juego se agregó correctamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+
+    } catch (IOException e) {
+        JOptionPane.showMessageDialog(this, "Ocurrió un error al agregar el juego.", "Error", JOptionPane.ERROR_MESSAGE);
     }
+}
 
+    
     private JPanel createNormalUserPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
+    
+    JPanel panel = new JPanel(new BorderLayout());
 
-        JPanel leftPanel = new JPanel(new GridLayout(3, 1));
-        btnViewCatalog = new JButton("Catálogo de Juego");
-        btnDownloadGame = new JButton("Descargar Juego");
-        btnViewProfile = new JButton("Ver Perfil");
+    
+    JPanel leftPanel = new JPanel(new GridLayout(4, 1));
+    btnViewCatalog = new JButton("Ver juegos");
+    btnDownloadGame = new JButton("Descargar Juego");
+    btnViewProfile = new JButton("Ver perfil");
+    JButton btnDeleteAccount = new JButton("Borrar cuenta"); 
 
-        leftPanel.add(btnViewCatalog);
-        leftPanel.add(btnDownloadGame);
-        leftPanel.add(btnViewProfile);
+   
+    leftPanel.add(btnViewCatalog);
+    leftPanel.add(btnDownloadGame);
+    leftPanel.add(btnViewProfile);
+    leftPanel.add(btnDeleteAccount);  
 
-        JPanel rightPanel = new JPanel(new BorderLayout());
-        rightPanel.add(new ImagePanel(), BorderLayout.CENTER);
+    
+    JPanel rightPanel = new JPanel();
+    JButton btnConfigure = new JButton("Configuracion");
+    rightPanel.add(btnConfigure);
 
-        btnConfigure = new JButton("Configurar Botón");
-        JPanel btnPanel = new JPanel();
-        btnPanel.add(btnConfigure);
+    
+    JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
+    splitPane.setDividerLocation(300); 
 
-        rightPanel.add(btnPanel, BorderLayout.SOUTH);
+    
+    panel.add(splitPane, BorderLayout.CENTER);
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
-        splitPane.setDividerLocation(300);
+  
+    btnLogoutUser = new JButton("Logout");
+    panel.add(btnLogoutUser, BorderLayout.SOUTH);
 
-        panel.add(splitPane, BorderLayout.CENTER);
+  
+    btnLogoutUser.addActionListener(e -> cardLayout.show(mainPanel, "login"));
 
-        btnLogoutUser = new JButton("Logout");
-        panel.add(btnLogoutUser, BorderLayout.SOUTH);
+    
+    btnDeleteAccount.addActionListener(e -> handleDeleteAccount());
 
-        btnLogoutUser.addActionListener(e -> cardLayout.show(mainPanel, "login"));
+    return panel;
+}
+    
+    private void handleDeleteAccount() {
+    
+    int response = JOptionPane.showConfirmDialog(this, 
+            "seguro desea borrar la cuena?", 
+            "Confirmar borrar", 
+            JOptionPane.YES_NO_OPTION);
+    
+    if (response == JOptionPane.YES_OPTION) {
+      
+        User currentUser = findUser(currentUsername);
+        
+        if (currentUser != null) {
+           
+            users.remove(currentUser);
+            
+         
+            JOptionPane.showMessageDialog(this, "cuenta borrada exitosamente.", "Success", JOptionPane.INFORMATION_MESSAGE);
 
-        return panel;
-    }
+            
+            currentUsername = null;
 
-    class ImagePanel extends JPanel {
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            if (imagenUsuario != null) {
-                int width = getWidth() / 2;
-                int height = getHeight() / 2;
-                int x = (getWidth() - width) / 2;
-                int y = (getHeight() - height) / 4;
-
-                g.drawImage(imagenUsuario, x, y, width, height, this);
-            }
+            
+            cardLayout.show(mainPanel, "login");
+        } else {
+            
+            JOptionPane.showMessageDialog(this, "Error: Usuario no encontrado.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+}
+
 
     private void handleLogin(String username, String password) {
+        
         User user = findUser(username, password);
         if (user != null) {
+            currentUsername = user.getUsername();
             if (user.getRole().equals("admin")) {
-                cardLayout.show(mainPanel, "admin");
+                cardLayout.show(mainPanel, "admin"); 
             } else {
-                cardLayout.show(mainPanel, "user");
+                cardLayout.show(mainPanel, "user");  
             }
         } else {
-            JOptionPane.showMessageDialog(this, "Credenciales Inválidas", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "invalido", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void handleRegister(String username, String password) {
         if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Por favor ingrese un usuario o una contraseña válida.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "ingresar contrasena o usuario valido.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
+       
         if (findUser(username) != null) {
-            JOptionPane.showMessageDialog(this, "Usuario existente.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "usuario ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
         } else {
+            
             users.add(new User(username, password, "user"));
-            JOptionPane.showMessageDialog(this, "Usuario registrado exitosamente!", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Usuario ya registrado exitosamente!", "Success", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
     private User findUser(String username, String password) {
+       
         for (User user : users) {
             if (user.getUsername().equals(username) && user.getPassword().equals(password)) {
                 return user;
@@ -183,6 +292,7 @@ public class SteamGui extends JFrame {
     }
 
     private User findUser(String username) {
+        
         for (User user : users) {
             if (user.getUsername().equals(username)) {
                 return user;
@@ -191,11 +301,11 @@ public class SteamGui extends JFrame {
         return null;
     }
 
-  
+
 class User {
     private String username;
     private String password;
-    private String role;
+    private String role;  
 
     public User(String username, String password, String role) {
         this.username = username;
@@ -214,5 +324,4 @@ class User {
     public String getRole() {
         return role;
     }
-}
-}
+}}
