@@ -45,59 +45,30 @@ public class steam {
             System.out.println("Error al inicializar Steam: " + e.getMessage());
         }
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+    public void addGame(String name, int minAge, boolean win, boolean mac, boolean linux, double price) {
+        try {
+            codesFile.seek(0);
+            int gameCode = codesFile.readInt();
+            codesFile.seek(0);
+            codesFile.writeInt(gameCode + 1);
+
+            gamesFile.seek(gamesFile.length());
+            gamesFile.writeInt(gameCode);
+            gamesFile.writeUTF(name);
+            gamesFile.writeInt(minAge);
+            gamesFile.writeBoolean(win);
+            gamesFile.writeBoolean(mac);
+            gamesFile.writeBoolean(linux);
+            gamesFile.writeDouble(price);
+            gamesFile.writeInt(0); // Download Count
+
+            System.out.println("Juego agregado con éxito. Código: " + gameCode);
+        } catch (IOException e) {
+            System.out.println("Error al agregar juego: " + e.getMessage());
+        }
+    }
+
     public void addPlayer(Calendar nacimiento) {
         try {
             codesFile.seek(4);
@@ -144,10 +115,14 @@ public class steam {
             }
 
             boolean osCompatible = switch (os.toLowerCase()) {
-                case "windows" -> availableWindows;
-                case "mac" -> availableMac;
-                case "linux" -> availableLinux;
-                default -> false;
+                case "windows" ->
+                    availableWindows;
+                case "mac" ->
+                    availableMac;
+                case "linux" ->
+                    availableLinux;
+                default ->
+                    false;
             };
 
             if (!osCompatible) {
@@ -219,6 +194,75 @@ public class steam {
         } catch (IOException e) {
             System.out.println("Error al descargar juego: " + e.getMessage());
             return false;
+        }
+    }
+
+    public void updatePriceFor(int gameCode, double newPrice) {
+        try {
+            gamesFile.seek(0);
+            while (gamesFile.getFilePointer() < gamesFile.length()) {
+                int currentGameCode = gamesFile.readInt();
+                String name = gamesFile.readUTF();
+                gamesFile.skipBytes(1 + 1 + 1); // minAge, win, mac, linux
+                gamesFile.readDouble();
+
+                if (currentGameCode == gameCode) {
+                    gamesFile.seek(gamesFile.getFilePointer() - 8); // Retrocede para sobreescribir el precio
+                    gamesFile.writeDouble(newPrice);
+                    System.out.println("Precio actualizado exitosamente para el juego: " + name);
+                    return;
+                }
+            }
+            System.out.println("El juego con código " + gameCode + " no existe.");
+        } catch (IOException e) {
+            System.out.println("Error al actualizar el precio: " + e.getMessage());
+        }
+    }
+
+    public void reportForClient(int codeclient, String txtFile) {
+        try {
+            playersFile.seek(0);
+            while (playersFile.getFilePointer() < playersFile.length()) {
+                int currentPlayerCode = playersFile.readInt();
+                int birthYear = playersFile.readInt();
+                int birthMonth = playersFile.readInt();
+                int birthDay = playersFile.readInt();
+                int downloadCount = playersFile.readInt();
+
+                if (currentPlayerCode == codeclient) {
+                    PrintWriter writer = new PrintWriter(new FileWriter(txtFile, false));
+                    writer.println("Código del cliente: " + currentPlayerCode);
+                    writer.println("Fecha de nacimiento: " + birthYear + "-" + (birthMonth + 1) + "-" + birthDay);
+                    writer.println("Total de descargas: " + downloadCount);
+                    writer.close();
+
+                    System.out.println("REPORTE CREADO");
+                    return;
+                }
+            }
+            System.out.println("NO SE PUEDE CREAR REPORTE");
+        } catch (IOException e) {
+            System.out.println("Error al crear reporte: " + e.getMessage());
+        }
+    }
+
+    public void printGames() {
+        try {
+            gamesFile.seek(0);
+            while (gamesFile.getFilePointer() < gamesFile.length()) {
+                int gameCode = gamesFile.readInt();
+                String name = gamesFile.readUTF();
+                int minAge = gamesFile.readInt();
+                boolean win = gamesFile.readBoolean();
+                boolean mac = gamesFile.readBoolean();
+                boolean linux = gamesFile.readBoolean();
+                double price = gamesFile.readDouble();
+                int downloadCount = gamesFile.readInt();
+
+                System.out.println("Código: " + gameCode + ", Nombre: " + name + ", Edad mínima: " + minAge + ", Windows: " + win + ", Mac: " + mac + ", Linux: " + linux + ", Precio: " + price + ", Descargas: " + downloadCount);
+            }
+        } catch (IOException e) {
+            System.out.println("Error al imprimir juegos: " + e.getMessage());
         }
     }
 }
