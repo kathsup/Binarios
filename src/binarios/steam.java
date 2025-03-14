@@ -4,23 +4,9 @@
  */
 package binarios;
 
-<<<<<<< HEAD
 import java.io.*;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
-=======
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
->>>>>>> 61f4cde7910bcd70bae0644b42e7a4f7276b1bf4
 
 public class steam {
 
@@ -28,10 +14,7 @@ public class steam {
     private static final String CODES_FILE = FOLDER + "/codes.stm";
     private static final String GAMES_FILE = FOLDER + "/games.stm";
     private static final String PLAYERS_FILE = FOLDER + "/player.stm";
-<<<<<<< HEAD
     private static final String DOWNLOADS_FOLDER = FOLDER + "/downloads";
-=======
->>>>>>> 61f4cde7910bcd70bae0644b42e7a4f7276b1bf4
 
     private RandomAccessFile codesFile;
     private RandomAccessFile gamesFile;
@@ -42,29 +25,78 @@ public class steam {
             File steamFolder = new File(FOLDER);
             if (!steamFolder.exists()) {
                 steamFolder.mkdir();
-<<<<<<< HEAD
             }
 
             File downloadsFolder = new File(DOWNLOADS_FOLDER);
             if (!downloadsFolder.exists()) {
                 downloadsFolder.mkdir();
-=======
-            } else {
-                File downloads = new File(FOLDER + "/downloads");
-                downloads.mkdir();
->>>>>>> 61f4cde7910bcd70bae0644b42e7a4f7276b1bf4
             }
 
             codesFile = new RandomAccessFile(CODES_FILE, "rw");
             gamesFile = new RandomAccessFile(GAMES_FILE, "rw");
             playersFile = new RandomAccessFile(PLAYERS_FILE, "rw");
 
-            initCodes();
+            if (codesFile.length() == 0) {
+                codesFile.writeInt(1);
+                codesFile.writeInt(1);
+                codesFile.writeInt(1);
+            }
         } catch (IOException e) {
             System.out.println("Error al inicializar Steam: " + e.getMessage());
         }
     }
-<<<<<<< HEAD
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     public void addPlayer(Calendar nacimiento) {
         try {
@@ -189,53 +221,4 @@ public class steam {
             return false;
         }
     }
-=======
-
-    private void initCodes() throws IOException {
-        if (codesFile.length() == 0) {
-            codesFile.writeInt(1);
-            codesFile.writeInt(1);
-            codesFile.writeInt(1);
-        }
-    }
-
-    private int getCode(int pos) throws IOException {
-        codesFile.seek(0);
-        codesFile.skipBytes(pos);
-        int code = codesFile.readInt();
-        codesFile.seek(0);
-        codesFile.writeInt(code + 1);
-        return code;
-    }
-    
-    public void addGame(String nombre, char so, int edadMin, double precio) throws IOException {
-        gamesFile.seek(gamesFile.length());
-        int codigo = getCode(0);
-        gamesFile.writeInt(codigo);
-        gamesFile.writeUTF(nombre);
-        gamesFile.writeChar(so);
-        gamesFile.writeInt(edadMin);
-        gamesFile.writeDouble(precio);
-        gamesFile.writeInt(0);
-        byte[] imagenBytes = cargarImagen(nombre);
-        if (imagenBytes != null) {
-            gamesFile.writeInt(imagenBytes.length);
-            gamesFile.write(imagenBytes);
-        } else {
-            gamesFile.writeInt(0);
-        }
-    }
-    
-    private byte[] cargarImagen(String nombre) {
-        File imagen = new File("imagenes/" + nombre + ".jpg");
-        byte[] buffer = null;
-        try (FileInputStream fis = new FileInputStream(imagen)) {
-            buffer = new byte[(int) imagen.length()];
-            fis.read(buffer);
-        } catch (IOException e) {
-            System.out.println("No se pudo cargar la imagen: " + nombre + ".jpg");
-        }
-        return buffer;
-    }
->>>>>>> 61f4cde7910bcd70bae0644b42e7a4f7276b1bf4
 }
