@@ -17,7 +17,7 @@ public class Binarios {
      */
      public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            SteamGui gui = new SteamGui();
+            SteamGUI gui = new SteamGUI();
             gui.setVisible(true);
         });
     }

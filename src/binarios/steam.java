@@ -4,9 +4,19 @@
  */
 package binarios;
 
+import java.awt.Dimension;
 import java.io.*;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.Date;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 
 public class steam {
 
@@ -14,9 +24,9 @@ public class steam {
     private static final String CODES_FILE = FOLDER + "/codes.stm";
     private static final String GAMES_FILE = FOLDER + "/games.stm";
     private static final String PLAYERS_FILE = FOLDER + "/player.stm";
-    private static final String DOWNLOADS_FOLDER = FOLDER + "/downloads";
 
-    private RandomAccessFile codesFile;
+    private static final String DOWNLOADS_FOLDER = FOLDER + "/downloads";
+    public RandomAccessFile codesFile;
     private RandomAccessFile gamesFile;
     private RandomAccessFile playersFile;
 
@@ -30,239 +40,547 @@ public class steam {
             File downloadsFolder = new File(DOWNLOADS_FOLDER);
             if (!downloadsFolder.exists()) {
                 downloadsFolder.mkdir();
+            } else {
+                File downloads = new File(FOLDER + "/downloads");
+                downloads.mkdir();
             }
 
             codesFile = new RandomAccessFile(CODES_FILE, "rw");
             gamesFile = new RandomAccessFile(GAMES_FILE, "rw");
             playersFile = new RandomAccessFile(PLAYERS_FILE, "rw");
 
-            if (codesFile.length() == 0) {
-                codesFile.writeInt(1);
-                codesFile.writeInt(1);
-                codesFile.writeInt(1);
-            }
+            initCodes();
         } catch (IOException e) {
             System.out.println("Error al inicializar Steam: " + e.getMessage());
         }
     }
 
-    public void addGame(String name, int minAge, boolean win, boolean mac, boolean linux, double price) {
-        try {
-            codesFile.seek(0);
-            int gameCode = codesFile.readInt();
-            codesFile.seek(0);
-            codesFile.writeInt(gameCode + 1);
-
-            gamesFile.seek(gamesFile.length());
-            gamesFile.writeInt(gameCode);
-            gamesFile.writeUTF(name);
-            gamesFile.writeInt(minAge);
-            gamesFile.writeBoolean(win);
-            gamesFile.writeBoolean(mac);
-            gamesFile.writeBoolean(linux);
-            gamesFile.writeDouble(price);
-            gamesFile.writeInt(0); // Download Count
-
-            System.out.println("Juego agregado con éxito. Código: " + gameCode);
-        } catch (IOException e) {
-            System.out.println("Error al agregar juego: " + e.getMessage());
+    private void initCodes() throws IOException {
+        if (codesFile.length() == 0) {
+            codesFile.writeInt(1);
+            codesFile.writeInt(1);
+            codesFile.writeInt(1);
         }
     }
 
-    public void addPlayer(Calendar nacimiento) {
-        try {
-            codesFile.seek(4);
-            int playerCode = codesFile.readInt();
-            codesFile.seek(4);
-            codesFile.writeInt(playerCode + 1);
+    private int getCode(int pos) throws IOException {
+        codesFile.seek(0);
+        codesFile.skipBytes(pos);
+        int code = codesFile.readInt();
+        codesFile.seek(pos);
+        codesFile.writeInt(code + 1);
+        return code;
+    }
 
-            playersFile.seek(playersFile.length());
-            playersFile.writeInt(playerCode);
-            playersFile.writeInt(nacimiento.get(Calendar.YEAR));
-            playersFile.writeInt(nacimiento.get(Calendar.MONTH));
-            playersFile.writeInt(nacimiento.get(Calendar.DAY_OF_MONTH));
-            playersFile.writeInt(0);
+    public void addGame(String nombre, char so, int edadMin, double precio) throws IOException {
+        gamesFile.seek(gamesFile.length());
+        int codigo = getCode(0);
+        gamesFile.writeInt(codigo);
+        gamesFile.writeUTF(nombre);
+        gamesFile.writeChar(so);
+        gamesFile.writeInt(edadMin);
+        gamesFile.writeDouble(precio);
+        gamesFile.writeInt(0);
+        String rutaImagen = "imagenes/" + nombre + ".png";
+        gamesFile.writeUTF(rutaImagen);
+        codesFile.seek(0);
+        int juegos = codesFile.readInt();
+        codesFile.seek(0);
+        codesFile.writeInt(juegos + 1);
+    }
 
-            System.out.println("Jugador agregado con éxito. Código: " + playerCode);
-        } catch (IOException e) {
-            System.out.println("Error al agregar jugador: " + e.getMessage());
+    public void addPlayer(String username, String password, String nombre, Calendar nacimiento, String tipoUsuario) throws IOException {
+        playersFile.seek(playersFile.length());
+        int codigo = getCode(4);
+        playersFile.writeInt(codigo);
+        playersFile.writeUTF(username);
+        playersFile.writeUTF(password);
+        playersFile.writeUTF(nombre);
+        long fecha = nacimiento.getTimeInMillis();
+        playersFile.writeLong(fecha);
+        playersFile.writeInt(0);
+        String rutaImagen = "imagenes/imagenusuario.png";
+        playersFile.writeUTF(rutaImagen);
+        playersFile.writeUTF(tipoUsuario);
+        carpetaJugador(username);
+    }
+    
+    public boolean deletePlayer(int codigo) throws IOException {
+        long posOriginal = playersFile.getFilePointer();
+        playersFile.seek(0);
+
+        boolean encontrado = false;
+        long posicion = 0;
+
+        while (playersFile.getFilePointer() < playersFile.length()) {
+            posicion = playersFile.getFilePointer();
+            int codigoActual = playersFile.readInt();
+
+            if (codigoActual == codigo) {
+                encontrado = true;
+                break;
+            }
+
+            playersFile.readUTF();
+            playersFile.readUTF();
+            playersFile.readUTF();
+            playersFile.readLong();
+            playersFile.readInt();
+            playersFile.readUTF();
+            playersFile.readUTF();
+        }
+
+        if (encontrado) {
+            playersFile.seek(posicion);
+            playersFile.writeInt(-1);
+        }
+
+        playersFile.seek(posOriginal);
+
+        return encontrado;
+    }
+
+    private long buscarPlayer(String name, String password) throws IOException {
+        playersFile.seek(0);
+        while (playersFile.getFilePointer() < playersFile.length()) {
+            long pos = playersFile.getFilePointer();
+            playersFile.seek(pos);
+            playersFile.readInt();
+            String user = playersFile.readUTF();
+            String pass = playersFile.readUTF();
+            playersFile.readUTF();
+            playersFile.skipBytes(12);
+            playersFile.readUTF();
+            playersFile.readUTF();
+            if (user.equals(name) && pass.equals(password)) {
+                return pos;
+            }
+        }
+        return 0;
+    }
+
+    public String getPlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password));
+        playersFile.readInt();
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.skipBytes(12);
+        playersFile.readUTF();
+        String tipoUsuario = playersFile.readUTF();
+        return tipoUsuario;
+    }
+
+    public int codigoPlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password));
+        int codigo = playersFile.readInt();
+        return codigo;
+    }
+    
+    public String usuarioPlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password) + 4);
+        String username = playersFile.readUTF();
+        return username;
+    }
+    
+    public String nombrePlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password) + 4);
+        playersFile.readUTF();
+        playersFile.readUTF();
+        String nombre = playersFile.readUTF();
+        return nombre;
+    }
+    
+    public Date fechaPlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password) + 4);
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.readUTF();
+        long edad = playersFile.readLong();
+        Date fecha = new Date(edad);
+        return fecha;
+    }
+    
+    public int descargasPlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password) + 4);
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.readLong();
+        int descargas = playersFile.readInt();
+        return descargas;
+    }
+    
+    public String rutaImagenPlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password) + 4);
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.skipBytes(12);
+        String rutaImagen = playersFile.readUTF();
+        return rutaImagen;
+    }
+    
+    public String tipoUsuarioPlayer(String name, String password) throws IOException {
+        playersFile.seek(buscarPlayer(name, password) + 4);
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.readUTF();
+        playersFile.skipBytes(12);
+        playersFile.readUTF();
+        String tipoUsuario = playersFile.readUTF();
+        return tipoUsuario;
+    }
+    
+    public void listPlayers() throws IOException {
+        playersFile.seek(0);
+        while (playersFile.getFilePointer() < playersFile.length()) {
+            playersFile.seek(playersFile.getFilePointer());
+            int code = playersFile.readInt();
+            String username = playersFile.readUTF();
+            playersFile.readUTF();
+            String name = playersFile.readUTF();
+            Date dateS = new Date(playersFile.readLong());
+            int descargas = playersFile.readInt();
+            playersFile.readUTF();
+            String tipoUsuario = playersFile.readUTF();
+            if (code > 0) {
+                JOptionPane.showMessageDialog(null, "Código: " + code 
+                                 + "\nNombre: " + name
+                                 + "\nUsuario: " + username
+                                 + "\nFecha de Contratación: " + dateS
+                                 + "\nJuegos Descargados: " + descargas
+                                 + "\nTipo de Usuario: " + tipoUsuario + "\n");
+            }
         }
     }
 
-    public boolean downloadGame(int gameCode, int playerCode, String os) {
+    private String direccionJugador(String nombre) {
+        return DOWNLOADS_FOLDER + "/" + nombre;
+    }
+
+    private void carpetaJugador(String nombre) throws IOException {
+        File carpeta = new File(direccionJugador(nombre));
+        if(!carpeta.exists()) {
+            carpeta.mkdir();
+        }
+    }
+    
+    private RandomAccessFile descargasJugador(String nombre) throws IOException {
+        String dirPadre = direccionJugador(nombre);
+        int descargaCodigo = getCode(8);
+        String path = dirPadre + "/download_" + descargaCodigo + ".emp";
+        return new RandomAccessFile(path, "rw");
+    }
+    
+    public boolean downloadGame(int gameCode, int playerCode, char os, String usuario) {
         try {
             gamesFile.seek(0);
-            boolean gameFound = false;
-            int minAge = 0;
-            boolean availableWindows = false, availableMac = false, availableLinux = false;
+            boolean juegoExiste = false;
+            int edadMin = 0;
+            boolean esCompatible = false;
 
             while (gamesFile.getFilePointer() < gamesFile.length()) {
-                int currentGameCode = gamesFile.readInt();
-                minAge = gamesFile.readInt();
-                availableWindows = gamesFile.readBoolean();
-                availableMac = gamesFile.readBoolean();
-                availableLinux = gamesFile.readBoolean();
+                gamesFile.seek(gamesFile.getFilePointer());
+                int codigo = gamesFile.readInt();
+                gamesFile.readUTF();
+                char osJuego = gamesFile.readChar();
+                edadMin = gamesFile.readInt();
+                gamesFile.readDouble();
+                gamesFile.skipBytes(4);
+                gamesFile.readUTF();
 
-                if (currentGameCode == gameCode) {
-                    gameFound = true;
+                if (codigo == gameCode) {
+                    juegoExiste = true;
+                    esCompatible = (osJuego == os);
                     break;
                 }
             }
 
-            if (!gameFound) {
-                System.out.println("Error!! El videojuego no existe.");
+            if (!juegoExiste) {
+                JOptionPane.showMessageDialog(null, "El juego con código " + gameCode + " no existe.");
                 return false;
             }
 
-            boolean osCompatible = switch (os.toLowerCase()) {
-                case "windows" ->
-                    availableWindows;
-                case "mac" ->
-                    availableMac;
-                case "linux" ->
-                    availableLinux;
-                default ->
-                    false;
-            };
-
-            if (!osCompatible) {
-                System.out.println("Error!! El videojuego no es compatible con " + os);
+            if (!esCompatible) {
+                JOptionPane.showMessageDialog(null, "El juego no está disponible para el sistema operativo especificado.");
                 return false;
             }
-
             playersFile.seek(0);
-            boolean playerFound = false;
-            int birthYear = 0, birthMonth = 0, birthDay = 0, downloadCount = 0;
+            String username = null;
+            boolean jugadorExiste = false;
+            int edadJugador = 0;
 
             while (playersFile.getFilePointer() < playersFile.length()) {
-                int currentPlayerCode = playersFile.readInt();
-                birthYear = playersFile.readInt();
-                birthMonth = playersFile.readInt();
-                birthDay = playersFile.readInt();
-                downloadCount = playersFile.readInt();
+                playersFile.seek(playersFile.getFilePointer());
+                int codigo = playersFile.readInt();
+                username = playersFile.readUTF();
+                playersFile.readUTF();
+                playersFile.readUTF();
+                long nacimiento = playersFile.readLong();
+                playersFile.readInt();
+                playersFile.readUTF();
+                playersFile.readUTF();
 
-                if (currentPlayerCode == playerCode) {
-                    playerFound = true;
+                if (codigo == playerCode) {
+                    jugadorExiste = true;
+                    Calendar fechaNacimiento = Calendar.getInstance();
+                    fechaNacimiento.setTimeInMillis(nacimiento);
+                    int añoNacimiento = fechaNacimiento.get(Calendar.YEAR);
+                    int añoActual = Calendar.getInstance().get(Calendar.YEAR);
+                    edadJugador = añoActual - añoNacimiento;
                     break;
                 }
             }
 
-            if (!playerFound) {
-                System.out.println("Error!! El cliente no existe.");
+            if (!jugadorExiste) {
+                JOptionPane.showMessageDialog(null, "El cliente con código " + playerCode + " no existe.");
                 return false;
             }
 
-            Calendar today = Calendar.getInstance();
-            int currentYear = today.get(Calendar.YEAR);
-            int currentMonth = today.get(Calendar.MONTH);
-            int currentDay = today.get(Calendar.DAY_OF_MONTH);
-
-            int age = currentYear - birthYear;
-            if (currentMonth < birthMonth || (currentMonth == birthMonth && currentDay < birthDay)) {
-                age--;
-            }
-
-            if (age < minAge) {
-                System.out.println("Error: El jugador no cumple con la edad mínima requerida.");
+            if (edadJugador < edadMin) {
+                JOptionPane.showMessageDialog(null, "El cliente no cumple con la edad mínima requerida para descargar este juego.");
                 return false;
             }
+            
+            carpetaJugador(usuario);
 
-            codesFile.seek(8);
-            int downloadCode = codesFile.readInt();
-            codesFile.seek(8);
-            codesFile.writeInt(downloadCode + 1);
-
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            String formattedDate = sdf.format(today.getTime());
-
-            String downloadFileName = DOWNLOADS_FOLDER + "/download_" + downloadCode + ".stm";
-            RandomAccessFile df = new RandomAccessFile(downloadFileName, "rw");
-            df.seek(0);
-            df.writeBytes("[FECHA DE DOWNLOAD: " + formattedDate + "]\n");
-            df.writeBytes("Código de descarga: " + downloadCode + "\n");
-            df.writeBytes("Código de juego: " + gameCode + "\n");
-            df.writeBytes("Código de cliente: " + playerCode + "\n");
-            df.writeBytes("Sistema operativo: " + os + "\n");
-            df.close();
-
-            long playerPosition = playersFile.getFilePointer() - 4;
-            playersFile.seek(playerPosition);
-            playersFile.writeInt(downloadCount + 1);
-
-            System.out.println("Descarga registrada: " + downloadFileName);
+            RandomAccessFile raf = descargasJugador(usuario);
+            raf.seek(0);
+            raf.writeLong(Calendar.getInstance().getTimeInMillis());
+            raf.writeInt(gameCode);
+            raf.writeInt(playerCode);
+            raf.writeChar(os);
+            JOptionPane.showMessageDialog(null, "Descarga creada exitosamente.");
+            while (playersFile.getFilePointer() < playersFile.length()) {
+                playersFile.seek(playersFile.getFilePointer());
+                int codigo = playersFile.readInt();
+                username = playersFile.readUTF();
+                playersFile.readUTF();
+                playersFile.readUTF();
+                long nacimiento = playersFile.readLong();
+                int descargas = playersFile.readInt();
+                playersFile.seek(playersFile.getFilePointer() - 4);
+                playersFile.writeInt(descargas + 1);
+                playersFile.readUTF();
+                playersFile.readUTF();
+            }
             return true;
-        } catch (IOException e) {
-            System.out.println("Error al descargar juego: " + e.getMessage());
+
+        } catch (IOException ex) {
+            System.out.println("Error al descargar el juego: " + ex.getMessage());
+            return false;
+        }
+    }
+    
+    public boolean mostrarDescargasJugador(String nombreUsuario) {
+        try {
+            File carpetaJugador = new File(direccionJugador(nombreUsuario));
+            if (!carpetaJugador.exists()) {
+                JOptionPane.showMessageDialog(null, "El jugador " + nombreUsuario + " no tiene descargas registradas.");
+                return false;
+            }
+
+            File[] archivosDescargas = carpetaJugador.listFiles((dir, name) -> name.startsWith("download_") && name.endsWith(".emp"));
+
+            if (archivosDescargas == null || archivosDescargas.length == 0) {
+                JOptionPane.showMessageDialog(null, "El jugador " + nombreUsuario + " no tiene descargas registradas.");
+                return false;
+            }
+
+            StringBuilder infoDescargas = new StringBuilder();
+            infoDescargas.append("Descargas del jugador ").append(nombreUsuario).append(":\n\n");
+
+            for (File archivoDescarga : archivosDescargas) {
+                RandomAccessFile raf = new RandomAccessFile(archivoDescarga, "r");
+
+                long timestamp = raf.readLong();
+                int gameCode = raf.readInt();
+                int playerCode = raf.readInt();
+                char os = raf.readChar();
+
+                Date fechaDescarga = new Date(timestamp);
+
+                String nombreJuego = tituloJuego(gameCode);
+
+                infoDescargas.append("- Descarga: ").append(archivoDescarga.getName()).append("\n");
+                infoDescargas.append("  Fecha: ").append(fechaDescarga).append("\n");
+                infoDescargas.append("  Juego: ").append(nombreJuego).append(" (Código: ").append(gameCode).append(")\n");
+                infoDescargas.append("  Sistema: ").append(osJuego(os)).append("\n\n");
+
+                raf.close();
+            }
+
+            // Mostrar la información en un JTextArea dentro de un JScrollPane
+            JTextArea textArea = new JTextArea(infoDescargas.toString());
+            textArea.setEditable(false);
+            JScrollPane scrollPane = new JScrollPane(textArea);
+            scrollPane.setPreferredSize(new Dimension(500, 300));
+
+            JOptionPane.showMessageDialog(null, scrollPane,
+                    "Descargas de " + nombreUsuario, JOptionPane.INFORMATION_MESSAGE);
+
+            return true;
+
+        } catch (IOException ex) {
+            System.out.println("Error al mostrar las descargas del jugador: " + ex.getMessage());
+            JOptionPane.showMessageDialog(null, "Error al leer las descargas del jugador.");
             return false;
         }
     }
 
-    public void updatePriceFor(int gameCode, double newPrice) {
+    public void updatePriceFor(int code) {
         try {
             gamesFile.seek(0);
             while (gamesFile.getFilePointer() < gamesFile.length()) {
-                int currentGameCode = gamesFile.readInt();
+                long pos = gamesFile.getFilePointer();
+                gamesFile.seek(pos);
+                int codigo = gamesFile.readInt();
                 String name = gamesFile.readUTF();
-                gamesFile.skipBytes(1 + 1 + 1); // minAge, win, mac, linux
-                gamesFile.readDouble();
+                gamesFile.skipBytes(18);
+                int tamaño = gamesFile.readInt();
+                byte[] datosImagen = new byte[tamaño];
+                gamesFile.readFully(datosImagen);
 
-                if (currentGameCode == gameCode) {
-                    gamesFile.seek(gamesFile.getFilePointer() - 8); // Retrocede para sobreescribir el precio
-                    gamesFile.writeDouble(newPrice);
+                if (codigo == code) {
+                    gamesFile.seek(pos);
+                    gamesFile.skipBytes(4);
+                    gamesFile.readUTF();
+                    gamesFile.skipBytes(6);
+                    double precio = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el nuevo precio del juego:"));
+                    gamesFile.writeDouble(precio);
+                    gamesFile.seek(0);
                     System.out.println("Precio actualizado exitosamente para el juego: " + name);
                     return;
                 }
             }
-            System.out.println("El juego con código " + gameCode + " no existe.");
+            System.out.println("El juego con código " + code + " no existe.");
         } catch (IOException e) {
             System.out.println("Error al actualizar el precio: " + e.getMessage());
         }
     }
 
-    public void reportForClient(int codeclient, String txtFile) {
+    public void reportForClient(int code, String txtFile) {
         try {
             playersFile.seek(0);
             while (playersFile.getFilePointer() < playersFile.length()) {
-                int currentPlayerCode = playersFile.readInt();
-                int birthYear = playersFile.readInt();
-                int birthMonth = playersFile.readInt();
-                int birthDay = playersFile.readInt();
-                int downloadCount = playersFile.readInt();
+                int codigo = playersFile.readInt();
+                String username = playersFile.readUTF();
+                String password = playersFile.readUTF();
+                String nombre = playersFile.readUTF();
+                long nacimiento = playersFile.readLong();
+                Date fecha = new Date(nacimiento);
+                int descargas = playersFile.readInt();
 
-                if (currentPlayerCode == codeclient) {
+                if (codigo == code) {
                     PrintWriter writer = new PrintWriter(new FileWriter(txtFile, false));
-                    writer.println("Código del cliente: " + currentPlayerCode);
-                    writer.println("Fecha de nacimiento: " + birthYear + "-" + (birthMonth + 1) + "-" + birthDay);
-                    writer.println("Total de descargas: " + downloadCount);
+                    writer.println("Código del cliente: " + codigo);
+                    writer.println("Nombre: " + nombre);
+                    writer.println("Username: " + username);
+                    writer.println("Fecha de nacimiento: " + fecha);
+                    writer.println("Total de descargas: " + descargas);
                     writer.close();
 
-                    System.out.println("REPORTE CREADO");
+                    JOptionPane.showMessageDialog(null, "REPORTE CREADO");
                     return;
                 }
             }
-            System.out.println("NO SE PUEDE CREAR REPORTE");
+            JOptionPane.showMessageDialog(null, "NO SE PUEDE CREAR REPORTE");
         } catch (IOException e) {
             System.out.println("Error al crear reporte: " + e.getMessage());
         }
     }
 
-    public void printGames() {
-        try {
-            gamesFile.seek(0);
-            while (gamesFile.getFilePointer() < gamesFile.length()) {
-                int gameCode = gamesFile.readInt();
-                String name = gamesFile.readUTF();
-                int minAge = gamesFile.readInt();
-                boolean win = gamesFile.readBoolean();
-                boolean mac = gamesFile.readBoolean();
-                boolean linux = gamesFile.readBoolean();
-                double price = gamesFile.readDouble();
-                int downloadCount = gamesFile.readInt();
-
-                System.out.println("Código: " + gameCode + ", Nombre: " + name + ", Edad mínima: " + minAge + ", Windows: " + win + ", Mac: " + mac + ", Linux: " + linux + ", Precio: " + price + ", Descargas: " + downloadCount);
+    public String printGames(int code) throws IOException {
+        String juegos = "";
+        gamesFile.seek(0);
+        while (gamesFile.getFilePointer() < gamesFile.length()) {
+            gamesFile.seek(gamesFile.getFilePointer());
+            int codigo = gamesFile.readInt();
+            String titulo = gamesFile.readUTF();
+            char osJuego = gamesFile.readChar();
+            int edadMin = gamesFile.readInt();
+            double precio = gamesFile.readDouble();
+            int descargas = gamesFile.readInt();
+            gamesFile.readUTF();
+            if (codigo == code) {
+                juegos = "Código: " + codigo + ", Nombre: " + titulo + ", Sistema Operativo: " + osJuego + ", Edad mínima: " + edadMin + ", Precio: " + precio + ", Descargas: " + descargas;
             }
-        } catch (IOException e) {
-            System.out.println("Error al imprimir juegos: " + e.getMessage());
         }
+        return juegos;
+    }
+
+    public long buscarJuego(int code) throws IOException {
+        int codigo;
+        gamesFile.seek(0);
+        while (gamesFile.getFilePointer() < gamesFile.length()) {
+            long pos = gamesFile.getFilePointer();
+            gamesFile.seek(pos);
+            codigo = gamesFile.readInt();
+            gamesFile.readUTF();
+            gamesFile.skipBytes(18);
+            gamesFile.readUTF();
+            if (codigo == code) {
+                return pos;
+            }
+        }
+        return 0;
+    }
+
+    public int codigoJuego(int code) throws IOException {
+        gamesFile.seek(buscarJuego(code));
+        int codigo = gamesFile.readInt();
+        return codigo;
+    }
+
+    public String tituloJuego(int code) throws IOException {
+        gamesFile.seek(buscarJuego(code) + 4);
+        String titulo = gamesFile.readUTF();
+        return titulo;
+    }
+
+    public char osJuego(int code) throws IOException {
+        gamesFile.seek(buscarJuego(code) + 4);
+        gamesFile.readUTF();
+        char os = gamesFile.readChar();
+        return os;
+    }
+
+    public int edadMinJuego(int code) throws IOException {
+        gamesFile.seek(buscarJuego(code) + 4);
+        gamesFile.readUTF();
+        gamesFile.skipBytes(2);
+        int edadMin = gamesFile.readInt();
+        return edadMin;
+    }
+
+    public double precioJuego(int code) throws IOException {
+        gamesFile.seek(buscarJuego(code) + 4);
+        gamesFile.readUTF();
+        gamesFile.skipBytes(6);
+        double precio = gamesFile.readDouble();
+        return precio;
+    }
+
+    public int descargasJuego(int code) throws IOException {
+        gamesFile.seek(buscarJuego(code) + 4);
+        gamesFile.readUTF();
+        gamesFile.skipBytes(14);
+        int descargas = gamesFile.readInt();
+        return descargas;
+    }
+
+    public String rutaImagenJuego(int code) throws IOException {
+        gamesFile.seek(buscarJuego(code) + 4);
+        gamesFile.readUTF();
+        gamesFile.skipBytes(18);
+        String rutaImagen = gamesFile.readUTF();
+        return rutaImagen;
+    }
+
+    public void eliminarTodo() throws IOException {
+        codesFile.setLength(0);
+        gamesFile.setLength(0);
+        playersFile.setLength(0);
     }
 }
